@@ -149,10 +149,13 @@ for record in filesInfo:
     FILE_ITERATION = FILE_ITERATION + 1
     CURRENT_FILE = record["filename"]
     CURRENT_FILE_SIZE = record["file_size"]
+    ExtraArgs = {
+    "ContentType": record['content_type']
+    }
     with open(record["full_path"], 'rb') as data:
         # print(record)
         try:
-            s3Client.upload_fileobj(data, bucket_name, record["new_path"], Callback=percent_cb)
+            s3Client.upload_fileobj(data, bucket_name, record["new_path"], ExtraArgs=ExtraArgs, Callback=percent_cb)
         except Exception as e:
             errors.append(e)
             percent_cb(100,100)
