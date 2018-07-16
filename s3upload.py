@@ -4,6 +4,7 @@ import sys
 import yaml
 import definitions
 import time
+import pickle
 
 MAX_SIZE = 20 * 1000 * 1000 # max size in bytes before uploading in parts. between 1 and 5 GB recommended
 PART_SIZE = 6 * 1000 * 1000 # size of parts when uploading in parts
@@ -161,6 +162,15 @@ for record in filesInfo:
             percent_cb(100,100)
 print("")
 print("== Upload Complete")
+
+# https://stackoverflow.com/questions/899103/writing-a-list-to-a-file-with-python
+with open('s3upload_report', 'wb') as fp:
+    pickle.dump(filesInfo, fp)
+
+# Read file back in:
+# with open ('s3upload_report', 'rb') as fp:
+    # filesInfo = pickle.load(fp)
+
 if errors:
     print("== Errors:", errors)
 
