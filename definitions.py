@@ -35,5 +35,19 @@ ContentTypes = {
     '.eot': 'application/vnd.ms-fontobject',
     '.ttf': 'font/ttf',
     '.otf': 'font/otf',
-    '.zip': 'application/zip'
+    '.zip': 'application/zip',
+    '.mp3': 'audio/mpeg',
+    '.mp4': 'video/mp4',
+    '.wav': 'audio/wav',
+    '.oga': 'audio/ogg',
+    '.ogv':	'video/ogg',
+    '.mpeg': 'video/mpeg',
+    '.mpg': 'video/mpeg',
+    '.avi': 'video/x-msvideo',
+    '.aac': 'audio/aac',
+    '.weba': 'audio/webm',
+    '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+    '.wmv': 'video/x-ms-wmv',
+    '.flv': 'video/x-flv'
 }

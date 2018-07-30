@@ -1,5 +1,5 @@
 import boto3, botocore
-import os.path
+import os
 import sys
 import yaml
 import definitions
@@ -105,42 +105,87 @@ def bucket_loop():
     # print("== Bucket successfully accessed: ", bucket_name)
     return bucket, bucket_name
 
-bucket = None
-bucket_name = ""
-unconfirmed = True
-while unconfirmed:
-    bucket, bucket_name = bucket_loop()
-    sourceDir = user_input("What directory would you like to upload:") # /home/jboo/Git/richsicecream/static/
-    destDir = user_input("Place files in directory inside bucket (optional):")
-
-    print("== Moving files from '{0}' to '{1}' in bucket '{2}'".format(sourceDir, destDir, bucket_name))
-    if user_input("Is this correct? (yes/no)", is_bool=True):
-        unconfirmed = False
 
 filesInfo = []
 fileStats = {
     "count": 0,
     "total_size": 0
 }
-for directory_path, subdirs, files in os.walk(sourceDir):
-    for filename in files:
-        full_path = os.path.join(directory_path, filename)
-        filesize = os.path.getsize(full_path)
-        ext = os.path.splitext(full_path)[1]
-        if len(ext) > 0:
-            filesInfo.append({
-                "filename": filename,
-                "full_path": full_path,
-                "new_path": "{0}{1}".format(destDir,full_path[len(sourceDir):]),
-                "file_size": filesize,
-                "ext": ext,
-                "content_type": definitions.ContentTypes[ext]
-            })
-            fileStats["count"] = fileStats["count"] + 1
-            fileStats["total_size"] = fileStats["total_size"] + filesize
-        else:
-            print("== Skipping file:", filename)
-print("== Total Files:", fileStats["count"], "(size: {0})".format(bytes_to_readable(fileStats["total_size"])))
+bucket = None
+bucket_name = ""
+unconfirmed = True
+
+no_import = True
+if os.path.exists('import.csv'):
+    use_import = user_input("Use 'import.csv' found in directory? (yes/no)", is_bool=True)
+
+if use_import:
+    destDir = user_input("Place files in directory inside bucket (optional):")
+
+    print("== Moving files from import.csv to '{1}' in bucket '{2}'".format(destDir, bucket_name))
+    if user_input("Is this correct? (yes/no)", is_bool=True):
+        unconfirmed = False
+
+    if use_import:
+        with open("import.csv", "r") as import_file:
+            files = import_file.readlines()
+        import_file.close()
+        for line in files:
+            filename, full_path = line.split(",")
+            # full_path = os.path.join(directory_path, filename)
+            filesize = os.path.getsize(full_path)
+            ext = os.path.splitext(full_path)[1]
+            if len(ext) > 0:
+                try:
+                    content_type = definitions.ContentTypes[ext]
+                except Exception:
+                    content_type = 'binary/octet-stream'
+                filesInfo.append({
+                    "filename": filename,
+                    "full_path": full_path,
+                    "new_path": "{0}{1}".format(destDir,full_path[len(sourceDir):]),
+                    "file_size": filesize,
+                    "ext": ext,
+                    "content_type": content_type
+                })
+                fileStats["count"] = fileStats["count"] + 1
+                fileStats["total_size"] = fileStats["total_size"] + filesize
+            else:
+                print("== Skipping file:", filename)
+
+if no_import:
+    while unconfirmed:
+        bucket, bucket_name = bucket_loop()
+        sourceDir = user_input("What directory would you like to upload:")
+        destDir = user_input("Place files in directory inside bucket (optional):")
+
+        print("== Moving files from '{0}' to '{1}' in bucket '{2}'".format(sourceDir, destDir, bucket_name))
+        if user_input("Is this correct? (yes/no)", is_bool=True):
+            unconfirmed = False
+
+    for directory_path, subdirs, files in os.walk(sourceDir):
+        for filename in files:
+            full_path = os.path.join(directory_path, filename)
+            filesize = os.path.getsize(full_path)
+            ext = os.path.splitext(full_path)[1]
+            if len(ext) > 0:
+                try:
+                    content_type = definitions.ContentTypes[ext]
+                except Exception:
+                    content_type = 'binary/octet-stream'
+                filesInfo.append({
+                    "filename": filename,
+                    "full_path": full_path,
+                    "new_path": "{0}{1}".format(destDir,full_path[len(sourceDir):]),
+                    "file_size": filesize,
+                    "ext": ext,
+                    "content_type": content_type
+                })
+                fileStats["count"] = fileStats["count"] + 1
+                fileStats["total_size"] = fileStats["total_size"] + filesize
+            else:
+                print("== Skipping file:", filename)
+    print("== Total Files:", fileStats["count"], "(size: {0})".format(bytes_to_readable(fileStats["total_size"])))
 
 
 s3Client = s3.meta.client
@@ -150,25 +195,41 @@ for record in filesInfo:
     FILE_ITERATION = FILE_ITERATION + 1
     CURRENT_FILE = record["filename"]
     CURRENT_FILE_SIZE = record["file_size"]
-    ExtraArgs = {
-    "ContentType": record['content_type']
-    }
-    with open(record["full_path"], 'rb') as data:
-        # print(record)
-        try:
-            s3Client.upload_fileobj(data, bucket_name, record["new_path"], ExtraArgs=ExtraArgs, Callback=percent_cb)
-        except Exception as e:
-            errors.append(e)
-            percent_cb(100,100)
+    try:
+        ExtraArgs = {
+        "ContentType": record['content_type']
+        }
+    except Exception as e:
+        print(e)
+    try:
+        if os.access(record["full_path"], os.R_OK):
+            pass
+        else:
+            try:
+                os.chmod(record["full_path"], 0o666)
+            except Exception as e:
+                errors.append(e)
+                continue
+
+        with open(record["full_path"], 'rb') as data:
+            # print(record)
+            try:
+                s3Client.upload_fileobj(data, bucket_name, record["new_path"], ExtraArgs=ExtraArgs, Callback=percent_cb)
+            except Exception as e:
+                errors.append(e)
+                percent_cb(100,100)
+    except Exception as e:
+        errors.append(e)
 print("")
 print("== Upload Complete")
 
 # https://stackoverflow.com/questions/899103/writing-a-list-to-a-file-with-python
-with open('s3upload_report', 'wb') as fp:
+filename = "report_{0}.txt".format(int(datetime.utcnow().timestamp()))
+with open(filename, 'wb') as fp:
     pickle.dump(filesInfo, fp)
 
 # Read file back in:
-# with open ('s3upload_report', 'rb') as fp:
+# with open ('outfile', 'rb') as fp:
     # filesInfo = pickle.load(fp)
 
 if errors:
