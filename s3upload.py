@@ -202,6 +202,7 @@ for record in filesInfo:
     except Exception as e:
         print(e)
     try:
+        # STEP 1: Ensure file has read permissions
         if os.access(record["full_path"], os.R_OK):
             pass
         else:
@@ -211,13 +212,23 @@ for record in filesInfo:
                 errors.append(e)
                 continue
 
-        with open(record["full_path"], 'rb') as data:
-            # print(record)
-            try:
-                s3Client.upload_fileobj(data, bucket_name, record["new_path"], ExtraArgs=ExtraArgs, Callback=percent_cb)
-            except Exception as e:
-                errors.append(e)
-                percent_cb(100,100)
+        # STEP 2: Check if file has already been uploaded to s3
+        not_found = False
+        try:
+            s3.head_object(Bucket=bucket_name, Key=record["new_path"])
+        except ClientError:
+            # Not found
+            not_found = True
+
+        # STEP 3: Upload file to s3
+        if not_found:
+            with open(record["full_path"], 'rb') as data:
+                # print(record)
+                try:
+                    s3Client.upload_fileobj(data, bucket_name, record["new_path"], ExtraArgs=ExtraArgs, Callback=percent_cb)
+                except Exception as e:
+                    errors.append(e)
+                    percent_cb(100,100)
     except Exception as e:
         errors.append(e)
 print("")
