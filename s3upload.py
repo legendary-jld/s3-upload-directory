@@ -5,6 +5,7 @@ import yaml
 import definitions
 import time
 import pickle
+from datetime import datetime
 
 MAX_SIZE = 20 * 1000 * 1000 # max size in bytes before uploading in parts. between 1 and 5 GB recommended
 PART_SIZE = 6 * 1000 * 1000 # size of parts when uploading in parts
@@ -116,6 +117,7 @@ bucket_name = ""
 unconfirmed = True
 
 no_import = True
+use_import = False
 if os.path.exists('import.csv'):
     use_import = user_input("Use 'import.csv' found in directory? (yes/no)", is_bool=True)
 
@@ -209,15 +211,17 @@ for record in filesInfo:
             try:
                 os.chmod(record["full_path"], 0o666)
             except Exception as e:
+                print("ERROR", e)
                 errors.append(e)
                 continue
 
         # STEP 2: Check if file has already been uploaded to s3
         not_found = False
         try:
-            s3.head_object(Bucket=bucket_name, Key=record["new_path"])
-        except ClientError:
+            s3Client.head_object(Bucket=bucket_name, Key=record["new_path"])
+        except Exception as e: # ClientError
             # Not found
+            print("ERROR", e)
             not_found = True
 
         # STEP 3: Upload file to s3
@@ -230,12 +234,13 @@ for record in filesInfo:
                     errors.append(e)
                     percent_cb(100,100)
     except Exception as e:
+        print("ERROR", e)
         errors.append(e)
 print("")
 print("== Upload Complete")
 
 # https://stackoverflow.com/questions/899103/writing-a-list-to-a-file-with-python
-filename = "report_{0}.txt".format(int(datetime.utcnow().timestamp()))
+filename = "report_{0}.pkl".format(int(datetime.utcnow().timestamp()))
 with open(filename, 'wb') as fp:
     pickle.dump(filesInfo, fp)
 
