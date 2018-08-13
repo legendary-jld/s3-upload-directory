@@ -239,8 +239,11 @@ for record in filesInfo:
 print("")
 print("== Upload Complete")
 
+
 # https://stackoverflow.com/questions/899103/writing-a-list-to-a-file-with-python
-filename = "report_{0}.pkl".format(int(datetime.utcnow().timestamp()))
+if not os.path.exists('reports'):
+    os.makedirs('reports')
+filename = "reports/report_{0}.pkl".format(int(datetime.utcnow().timestamp()))
 with open(filename, 'wb') as fp:
     pickle.dump(filesInfo, fp)
 
